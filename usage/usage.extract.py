@@ -91,16 +91,16 @@ def extract(rows, target_postags, target_structures):
 if __name__ == '__main__':
 
 	db_path = 'data/bnc.db3'
-	sql = "select * from BNC_Parsed where sent like ? limit 2000"
+	sql = "select * from BNC_Parsed where sent like ? limit 100"
 	args = ['%'+'worthy'+'%']
 	rows = fetch(db_path, sql, args)
 
 	## pre-specified target pos tags
-	target_postags = ['JJ']
+	target_postags = ['JJ', 'VB', 'NN']
 	## pre-specified structures
 	## +: necessary
 	## *: optional
-	target_structures = [('subj', 0), ('obj', 0), ('prep', 0)]
+	target_structures = [('subj', 0), ('obj', 0), ('prep', 1)]
 
 	# extract pre-specified targets
 	extract(rows, target_postags, target_structures)

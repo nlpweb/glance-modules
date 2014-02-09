@@ -54,7 +54,7 @@ def _filter_deps_by_rel(deps, anchor, targets):
 
 def _transform_to_tuple(dep): return (dep['rel'], (dep['ltoken'], dep['lidx']), (dep['rtoken'], dep['ridx']))
 
-def extract(rows, target_postags, target_structures):
+def extract(rows, target_postags, target_structures, target_word=None):
 
 	print 'anchor pos tags:', color.render(', '.join(target_postags), 'lc')
 	print 'structures:', color.render(', '.join([x[0]+':'+str(x[1]) for x in target_structures]), 'lc')
@@ -74,25 +74,35 @@ def extract(rows, target_postags, target_structures):
 		for (word, pos, idx) in cdeps:
 			rdeps = _filter_deps_by_rel(deps, anchor=(word, idx), targets=target_structures)
 			if rdeps:
-				print color.render('(keep) '+word+'-'+str(idx)+' #'+pos, 'g')
-				T = [_transform_to_tuple(dep) for dep in rdeps]
-				for (rel, (l, li), (r, ri)) in T:
-					print '  ',color.render(rel,'r'),color.render('( '+l+'-'+str(li)+', '+r+'-'+str(ri)+' )','y')
-				collect_cnt += 1
+				if target_word and word == target_word.lower():
+					print color.render('(keep) '+word+'-'+str(idx)+' #'+pos, 'g')
+					T = [_transform_to_tuple(dep) for dep in rdeps]
+					for (rel, (l, li), (r, ri)) in T:
+						print '  ',color.render(rel,'r'),color.render('( '+l+'-'+str(li)+', '+r+'-'+str(ri)+' )','y')
+					print 
+					collect_cnt += 1
+				else:
+					skip_cnt += 1
+					pass
+
+					# '(skip)',word+'-'+str(idx)+' #'+pos
+
 			else:
-				print '(skip)',word+'-'+str(idx)+' #'+pos
+				pass
+				# print '(skip)',word+'-'+str(idx)+' #'+pos
 				# if 'worthy' in word:
 					# pprint([_transform_to_tuple(dep) for dep in deps])
 				skip_cnt += 1
 
-		print '='*60
+
+	print '='*60
 	print 'total collect:',collect_cnt, '/', skip_cnt+collect_cnt, '\t(',round(collect_cnt/float(skip_cnt+collect_cnt)*100,2),'% )'
 
 if __name__ == '__main__':
 
 	db_path = 'data/bnc.db3'
-	sql = "select * from BNC_Parsed where sent like ? limit 100"
-	args = ['%'+'worthy'+'%']
+	sql = "select * from BNC_Parsed where sent like ?"
+	args = ['%'+'interested'+'%']
 	rows = fetch(db_path, sql, args)
 
 	## pre-specified target pos tags
@@ -100,8 +110,8 @@ if __name__ == '__main__':
 	## pre-specified structures
 	## +: necessary
 	## *: optional
-	target_structures = [('subj', 0), ('obj', 0), ('prep', 1)]
+	target_structures = [('subj', 1), ('obj', 1), ('prep', 0), ('cop', 0), ('mark', 0)]
 
 	# extract pre-specified targets
-	extract(rows, target_postags, target_structures)
+	extract(rows, target_postags, target_structures, target_word='interested')
 

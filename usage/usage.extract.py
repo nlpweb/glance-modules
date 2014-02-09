@@ -90,7 +90,7 @@ def extract(rows, target_postags, target_structures):
 
 if __name__ == '__main__':
 
-	db_path = 'data/bnc.dev.db3'
+	db_path = 'data/bnc.db3'
 	sql = "select * from BNC_Parsed where sent like ? limit 2000"
 	args = ['%'+'worthy'+'%']
 	rows = fetch(db_path, sql, args)

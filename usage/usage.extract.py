@@ -245,5 +245,5 @@ if __name__ == '__main__':
 	# extract(rows, target_postags, target_structures, target_word='wait')
 	# extract(rows, target_postags, target_structures)
 
-	extract_and_save(rows, target_postags, target_structures, det_db_cfg={'server_addr':doraemon, 'db':'BNC', 'collection':'Deps'})
+	extract_and_save(cur, target_postags, target_structures, det_db_cfg={'server_addr':doraemon, 'db':'BNC', 'collection':'Deps'})
 

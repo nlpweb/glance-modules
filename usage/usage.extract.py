@@ -90,9 +90,6 @@ def _filter_deps_by_rel(deps, anchor, targets):
 
 def _transform_to_tuple(dep): return (dep['rel'], (dep['ltoken'], dep['lidx']), (dep['rtoken'], dep['ridx']))
 
-def mongo_insert(cur, obj):
-
-
 def extract_and_save(rows, target_postags, target_structures, det_db_cfg, target_word=None, mongodb=True):
 	print 'anchor pos tags:', color.render(', '.join(target_postags), 'lc')
 	print 'structures:', color.render(', '.join([x[0]+':'+str(x[1]) for x in target_structures]), 'lc')

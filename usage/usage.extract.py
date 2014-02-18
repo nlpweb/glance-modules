@@ -4,8 +4,15 @@ import sqlitedb, dependency, color, sys # pymodules require
 from nltk import Tree
 from collections import defaultdict
 from pprint import pprint
+import pymongo
 
-def fetch(db_path, sql, args=()):
+### fetch_sqlite function
+### get results from a sqlite3 database
+### e.g., 
+###		sql = "select * from BNC_Parsed where sent like ?"
+### 	args = ['%'+'interested'+'%']
+### return <list> rows of select results
+def fetch_sqlite(db_path, sql, args=()):
 	# connect to database, fetch data
 	(con, cur) = sqlitedb.connect(db_path)
 	if '?' in sql:
@@ -15,6 +22,25 @@ def fetch(db_path, sql, args=()):
 	rows = list(res)
 	return rows
 
+### fetch_mongo function
+### get results from a mongo database
+### e.g,
+###		server_addr = "lost.nlpweb.org"
+### 	db_info = {'name': 'BNC', 'collection': 'Parsed'}
+### return <Cursor> mongo cursor object
+### further using list() or chain .limit() to get results
+def fetch_mongo(server_addr, db_info, search=None):
+	mc = pymongo.Connection(server_addr)
+	db = mc[db_info['name']]
+	co = db[db_info['collection']]
+	return co.find() if not search else co.find()
+
+### extract_anchors function
+### extract certain dependency relation according to pre-specified list of pos tags
+### e.g.,
+### input:  tree and deps of a sentence, pos tags = ['VB', 'JJ', 'NN']
+### return <list>
+###	e.g,[(u'is', u'VBZ', 8), (u"'ve", u'VBP', 5), (u'do', u'VBP', 7), (u'Yeah', u'JJ', 1), (u'well', u'NN', 2), (u'gotta', u'NN', 6), (u'bowl', u'NN', 11), (u'vinegar', u'NN', 13), (u'put', u'VBN', 9)]
 def extract_anchors(deps, tree, targets=['VB']):
 	D = defaultdict(list)
 	for (i, (w, pos)) in enumerate(tree.pos()):
@@ -24,6 +50,16 @@ def extract_anchors(deps, tree, targets=['VB']):
 	deps_with_anchors = dict(D).values()
 	return [] if not deps_with_anchors else reduce(lambda x,y:x+y, deps_with_anchors)
 
+### _filter_deps_by_rel function
+### extract dependency relations which match the target structures
+### input:
+###		deps <list>: list of dep dictionary object
+###			[{'ridx': 1, 'rtoken': u'Yeah', 'ltoken': u'well', 'rel': u'amod', 'lidx': 2},
+###			{'ridx': 2, 'rtoken': u'well', 'ltoken': u"'ve", 'rel': u'dobj', 'lidx': 5}]
+###		anchor <tuple>: (word, index) pair
+###		targets: <list>: target dependency structures, such as [(obj, 1)], to collect obj relation with 1+ occurrence
+###	return <list> list of dep dictionary objects
+###	e.g., [{'ridx': 2, 'rtoken': u'well', 'ltoken': u"'ve", 'rel': u'dobj', 'lidx': 5}]
 def _filter_deps_by_rel(deps, anchor, targets):
 
 	word, idx = anchor
@@ -54,64 +90,163 @@ def _filter_deps_by_rel(deps, anchor, targets):
 
 def _transform_to_tuple(dep): return (dep['rel'], (dep['ltoken'], dep['lidx']), (dep['rtoken'], dep['ridx']))
 
-def extract(rows, target_postags, target_structures, target_word=None):
+def mongo_insert(cur, obj):
+
+
+def extract_and_save(rows, target_postags, target_structures, det_db_cfg, target_word=None, mongodb=True):
+	print 'anchor pos tags:', color.render(', '.join(target_postags), 'lc')
+	print 'structures:', color.render(', '.join([x[0]+':'+str(x[1]) for x in target_structures]), 'lc')
+	print '='*60
+	collect_cnt, skip_cnt = 0, 0	
+
+	mc = pymongo.Connection(det_db_cfg['server_addr'])
+	db = mc[det_db_cfg['db']]
+	co = db[det_db_cfg['collection']]
+
+	sent_cnt, total_word_cnt, anchor_word_cnt, anchor_word_structure_cnt = 0, 0, 0, 0
+
+
+	for entry in rows:
+
+		## extract rows
+		sid, sent, pos, raw_tree, raw_dep = entry if not mongodb else (entry['id'], entry['sent'], entry['pos'], entry['tree'], entry['dep'])
+		
+		# read dependency and tree objs
+		deps = dependency.read(raw_dep, return_type=dict)
+		if not deps: continue
+		tree = Tree(raw_tree)
+
+
+		# collect certain dependency relations according to pre-specified pos tags
+		## cdeps: [(u'is', u'VBZ', 8), (u"'ve", u'VBP', 5), (u'do', u'VBP', 7), (u'Yeah', u'JJ', 1), (u'well', u'NN', 2), (u'gotta', u'NN', 6), (u'bowl', u'NN', 11), (u'vinegar', u'NN', 13), (u'put', u'VBN', 9)]
+		cdeps = extract_anchors(deps, tree, targets=target_postags)
+
+		## for stat
+		sent_cnt += 1
+		total_word_cnt += len(tree.pos())
+		anchor_word_cnt += len(cdeps)
+
+		##  ('is', 'VBZ', 8) in [(u'is', u'VBZ', 8), (u"'ve", u'VBP', 5), (u'do', u'VBP', 7) ...]
+		for (word, pos, idx) in cdeps:
+
+			## check if this is the target word if a target specified
+			if target_word and word.lower() != target_word.lower(): continue
+
+			## extract dependency relations which match the target structures 
+			rdeps = _filter_deps_by_rel(deps, anchor=(word, idx), targets=target_structures)
+
+			if rdeps: ## got deps match the target structures
+
+				print color.render('(anchor[v]) '+word+'-'+str(idx)+' #'+pos, 'g')
+
+				T = [ _transform_to_tuple(dep) for dep in rdeps]
+				for (rel, (l, li), (r, ri)) in T: print '  ',color.render(rel,'r'),color.render('( '+l+'-'+str(li)+', '+r+'-'+str(ri)+' )','y')
+
+				# generate mongo obj
+				mongo_obj = {}
+				mongo_obj['sid'] = sid 		# sentence id
+				mongo_obj['word'] = word 	# anchor word
+				mongo_obj['pos'] = pos 		# pos tag of word
+				mongo_obj['idx'] = idx 		# word index 
+				mongo_obj['deps'] = rdeps	# related deps
+
+				co.insert(mongo_obj)
+
+				anchor_word_structure_cnt += 1
+
+	
+	mc.close()
+
+	print '='*60
+	print 'write statistic log'
+	with open('stat.log','w') as fw:
+		fw.write('total sent'+'\t'+str(sent_cnt)+'\n')
+		fw.write('total word'+'\t'+str(total_word_cnt)+'\n')
+		fw.write('anchor word'+'\t'+str(anchor_word_cnt)+'\n')
+		fw.write('anchor word with structures'+'\t'+str(anchor_word_structure_cnt)+'\n')
+
+
+def extract(rows, target_postags, target_structures, target_word=None, mongodb=True, VERBOSE=True):
 
 	print 'anchor pos tags:', color.render(', '.join(target_postags), 'lc')
 	print 'structures:', color.render(', '.join([x[0]+':'+str(x[1]) for x in target_structures]), 'lc')
 	print '='*60
 	collect_cnt, skip_cnt = 0, 0
 
-	for (sid, sent, pos, raw_tree, raw_dep) in rows:
+	for entry in rows:
+
+		## extract rows
+		sid, sent, pos, raw_tree, raw_dep = entry if not mongodb else (entry['id'], entry['sent'], entry['pos'], entry['tree'], entry['dep'])
+		
 		# read dependency and tree objs
 		deps = dependency.read(raw_dep, return_type=dict)
 		if not deps: continue
-
 		tree = Tree(raw_tree)
 
 		# collect certain dependency relations according to pre-specified pos tags
+		## cdeps: [(u'is', u'VBZ', 8), (u"'ve", u'VBP', 5), (u'do', u'VBP', 7), (u'Yeah', u'JJ', 1), (u'well', u'NN', 2), (u'gotta', u'NN', 6), (u'bowl', u'NN', 11), (u'vinegar', u'NN', 13), (u'put', u'VBN', 9)]
 		cdeps = extract_anchors(deps, tree, targets=target_postags)
 
+		total_word_cnt += len(tree.pos())
+		anchor_word_cnt += len(cdeps)
+
+		##  ('is', 'VBZ', 8) in [(u'is', u'VBZ', 8), (u"'ve", u'VBP', 5), (u'do', u'VBP', 7) ...]
 		for (word, pos, idx) in cdeps:
+
+			## check if this is the target word if a target specified
+			if target_word and word.lower() != target_word.lower():
+				if VERBOSE:
+					print color.render('(ancher[x]) '+word+'-'+str(idx)+' #'+pos, 'b')
+				continue
+
+			## extract dependency relations which match the target structures 
 			rdeps = _filter_deps_by_rel(deps, anchor=(word, idx), targets=target_structures)
-			if rdeps:
-				if target_word and word == target_word.lower():
-					print color.render('(keep) '+word+'-'+str(idx)+' #'+pos, 'g')
-					T = [_transform_to_tuple(dep) for dep in rdeps]
-					for (rel, (l, li), (r, ri)) in T:
-						print '  ',color.render(rel,'r'),color.render('( '+l+'-'+str(li)+', '+r+'-'+str(ri)+' )','y')
-					print 
-					collect_cnt += 1
-				else:
-					skip_cnt += 1
-					pass
 
-					# '(skip)',word+'-'+str(idx)+' #'+pos
+			if rdeps: ## got deps match the target structures
 
-			else:
-				pass
-				# print '(skip)',word+'-'+str(idx)+' #'+pos
-				# if 'worthy' in word:
-					# pprint([_transform_to_tuple(dep) for dep in deps])
-				skip_cnt += 1
+				if VERBOSE:
+					print color.render('(anchor[v]) '+word+'-'+str(idx)+' #'+pos, 'g')
 
+				T = [ _transform_to_tuple(dep) for dep in rdeps]
+				for (rel, (l, li), (r, ri)) in T: print '  ',color.render(rel,'r'),color.render('( '+l+'-'+str(li)+', '+r+'-'+str(ri)+' )','y')
 
 	print '='*60
-	print 'total collect:',collect_cnt, '/', skip_cnt+collect_cnt, '\t(',round(collect_cnt/float(skip_cnt+collect_cnt)*100,2),'% )'
 
 if __name__ == '__main__':
 
-	db_path = 'data/bnc.db3'
-	sql = "select * from BNC_Parsed where sent like ?"
-	args = ['%'+'interested'+'%']
-	rows = fetch(db_path, sql, args)
+	######## sqlite version ########
+	# db_path = 'data/bnc.db3'
+	# sql = "select * from BNC_Parsed where sent like ?"
+	# args = ['%'+'interested'+'%']
+	# rows = fetch_sqlite(db_path, sql, args)
+
+	######## mongo version ########
+	doraemon = 'doraemon.iis.sinica.edu.tw'
+	db_info = {'name': 'BNC', 'collection': 'Parsed'}
+
+	# connect to mongo server
+	print >> sys.stderr, color.render('fetching data','r'), '...',
+	sys.stderr.flush()
+	cur = fetch_mongo(doraemon, db_info, None)
+	print >> sys.stderr, color.render('done','g')
+
+	# get fetched data
+	# print >> sys.stderr, color.render('limiting data','r'), '...',
+	# sys.stderr.flush()
+	# rows = cur.limit(1000)
+	# print >> sys.stderr, color.render('done','g')
 
 	## pre-specified target pos tags
 	target_postags = ['JJ', 'VB', 'NN']
+
 	## pre-specified structures
-	## +: necessary
-	## *: optional
-	target_structures = [('subj', 1), ('obj', 1), ('prep', 0), ('cop', 0), ('mark', 0)]
+	## 1: necessary
+	## 0: optional
+	target_structures = [('subj', 0), ('obj', 0), ('prep', 0), ('cop', 0), ('mark', 0)]
 
 	# extract pre-specified targets
-	extract(rows, target_postags, target_structures, target_word='interested')
+	# extract(rows, target_postags, target_structures, target_word='wait')
+	# extract(rows, target_postags, target_structures)
+
+	extract_and_save(rows, target_postags, target_structures, det_db_cfg={'server_addr':doraemon, 'db':'BNC', 'collection':'Deps'})
 

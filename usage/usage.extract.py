@@ -5,6 +5,8 @@ from nltk import Tree
 from collections import defaultdict
 from pprint import pprint
 import pymongo
+from nltk.stem.wordnet import WordNetLemmatizer
+from nltk.corpus import wordnet
 
 ### fetch_sqlite function
 ### get results from a sqlite3 database
@@ -90,7 +92,18 @@ def _filter_deps_by_rel(deps, anchor, targets):
 
 def _transform_to_tuple(dep): return (dep['rel'], (dep['ltoken'], dep['lidx']), (dep['rtoken'], dep['ridx']))
 
+def _getWordNetPOS(postag):
+	if postag.startswith('V'): return wordnet.VERB
+	elif postag.startswith('J'): return wordnet.ADJ
+	elif postag.startswith('N'): return wordnet.NOUN
+	elif postag.startswith('R'): return wordnet.ADV
+
 def extract_and_save(rows, target_postags, target_structures, det_db_cfg, target_word=None, mongodb=True):
+
+
+	lmtzr = WordNetLemmatizer()
+
+
 	print 'anchor pos tags:', color.render(', '.join(target_postags), 'lc')
 	print 'structures:', color.render(', '.join([x[0]+':'+str(x[1]) for x in target_structures]), 'lc')
 	print '='*60
@@ -139,6 +152,8 @@ def extract_and_save(rows, target_postags, target_structures, det_db_cfg, target
 				T = [ _transform_to_tuple(dep) for dep in rdeps]
 				for (rel, (l, li), (r, ri)) in T: print '  ',color.render(rel,'r'),color.render('( '+l+'-'+str(li)+', '+r+'-'+str(ri)+' )','y')
 
+				lemma = lmtzr.lemmatize(word, _getWordNetPOS(pos))
+
 				# generate mongo obj
 				mongo_obj = {}
 				mongo_obj['sid'] = sid 		# sentence id
@@ -146,7 +161,8 @@ def extract_and_save(rows, target_postags, target_structures, det_db_cfg, target
 				mongo_obj['pos'] = pos 		# pos tag of word
 				mongo_obj['idx'] = idx 		# word index 
 				mongo_obj['deps'] = rdeps	# related deps
-
+				mongo_obj['lemma'] = lemma	# word lemma
+				
 				co.insert(mongo_obj)
 
 				anchor_word_structure_cnt += 1
@@ -164,6 +180,8 @@ def extract_and_save(rows, target_postags, target_structures, det_db_cfg, target
 
 
 def extract(rows, target_postags, target_structures, target_word=None, mongodb=True, VERBOSE=True):
+
+
 
 	print 'anchor pos tags:', color.render(', '.join(target_postags), 'lc')
 	print 'structures:', color.render(', '.join([x[0]+':'+str(x[1]) for x in target_structures]), 'lc')

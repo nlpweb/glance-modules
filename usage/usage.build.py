@@ -6,6 +6,8 @@ from collections import defaultdict
 from pprint import pprint
 import pymongo
 from ListCombination import ListCombination
+
+from nltk import Tree
 # from nltk.stem.wordnet import WordNetLemmatizer
 # from nltk.corpus import wordnet
 
@@ -35,26 +37,52 @@ def apply_rule(deps, rule):
 			return False
 	return dict(D)
 
-def form(deps):
+def form(deps, tree=None):
 	words = set()
+
+	tree_pos = None if not tree else tree.pos()
+
+	## the original dep idx starts from 1
 	for dep in deps:
-		words.add((dep['ltoken'], dep['lidx'], True))
+		words.add((dep['ltoken'], dep['lidx'], True)) # token, idx, precise position
 		words.add((dep['rtoken'], dep['ridx'], True))
-		## current --> (v1.0) extract prep and predict prep idx
-		# (v2.0) get precise prep idx, look into the origin sentence
+		## (v1.0) extract prep and predict prep idx
+		## current --> (v2.0) get precise prep idx, look into the origin sentence
 		if 'prep' in dep['rel']:
 			prep = '_'.join(dep['rel'].split('_')[1:])
-			idx = max(dep['lidx'], dep['ridx'])
-			words.add((prep, idx-1, False))
 
+			if not tree:
+				idx = max(dep['lidx'], dep['ridx']) - 1
+				words.add((prep, idx, False))
+				_precise = False
+			else:
+				search = list(enumerate(tree_pos))[ min(dep['lidx'], dep['ridx']) : max(dep['lidx'], dep['ridx'])-1 ]
+				## find precise position of prep, also considering multiple preps such as "out of"
+				positions = []
+				for p in prep.split('_'): ## deal with "out of" cases
+					maybe_idx = max([ i for (i,(word, pos)) in search if word == p]) + 1
+					positions.append(maybe_idx)
+				idx = max(positions)
+				_precise = True
+
+			words.add((prep, idx, _precise))
+	
+	# if a tree is given, zip (word, idx, precise) pairs with pos tags
+	words = words if not tree else [(word, idx, tree_pos[idx-1][1], precise) for (word, idx, precise) in words]
 	words = sorted(list(words), key=lambda x:x[1])
 	return words
 
-def findpos(sid, words):
-	from nltk import Tree
-	res = list(coParsed.find( {'id':sid} ))[0]
-	T = Tree(res['tree'])
-	T.pos()
+# def findpos(sid, words):
+# 	from nltk import Tree
+# 	res = list(coParsed.find( {'id':sid} ))[0]
+# 	T = Tree(res['tree'])
+# 	## find precise position of a prep
+
+# 	# [(u'show', 23, True), (u'interest', 26, True), (u'in', 28, False), (u'son', 29, True)]
+# 	# for (i,(word, idx, precise)) in enumerate(words):
+# 		# if not precise:
+
+# 	# T.pos()
 
 if __name__ == '__main__':
 
@@ -87,23 +115,28 @@ if __name__ == '__main__':
 	for entry in R:
 
 		deps = entry['deps']
-		
+		raw = list(coParsed.find( {'id':entry['sid']} ))[0]
+
+		tree = Tree(raw['tree'])
+
+
 		rels = apply_rule(deps, rule)  # < dict(<list>) >
 
 		if not rels: continue
 
 		combs = ListCombination(rels.values())
 		
-		portion = '1/'+str(len(combs)) if len(combs) > 1 else '1'
+		# portion = '1/'+str(len(combs)) if len(combs) > 1 else '1'
 
 		print 'sid >',entry['sid']
 		for comb in combs:
-			words = form(comb)
+			words = form(comb, tree)
 
 			words_str = ' '.join([ color.render(x[0],'g') for x in words])
 
-			print portion,'\t',words_str, '\t',words
+			print words_str, '\t',words
 		print
+		# raw_input()
 
 
 

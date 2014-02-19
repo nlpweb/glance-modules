@@ -95,11 +95,9 @@ def save_extracted_patterns(mco, sid, lemma, patterns):
 	mco.find_and_modify(query=query, update=update)
 
 def _extract_opt(argv):
-	target = None
-	rule = None
-	limit = None
+	target, rule, limit, dump = None, None, None, None
 	try:
-		opts, args = getopt.getopt(argv,"ht:r:l:",["help", "target=", "rule=", "limit="])
+		opts, args = getopt.getopt(argv,"dht:r:l:",["dump","help", "target=", "rule=", "limit="])
 	except getopt.GetoptError:
 		print >> sys.stderr, 'python usage.build.py [-t <target>] [-r <rules>] [-l <limit>]'
 		sys.exit(2)
@@ -111,24 +109,30 @@ def _extract_opt(argv):
 		elif opt in ('-t', '--target'): target = arg
 		elif opt in ('-r', '--rule'): rule = arg
 		elif opt in ('-l', '--limit'): limit = arg
-	return {'target':target, 'rule':rule, 'limit':limit}
+		elif opt in ('-d', '--dump'): dump = True
+	return {'target':target, 'rule':rule, 'limit':limit, 'dump':dump}
 
-def main(argv):
+def main(argv, halt=False):
 
+	# default value
 	target = 'familiar'
 	rule = [('subj', 1), ('cop', 1), ('prep', 1)]
 	limit = -1
+	dump = False
 
 	var = _extract_opt(argv)
 	target = target if not var['target'] else var['target'].strip()
 	rule = rule if not var['rule'] else eval(var['rule'])
 	limit = limit if not var['limit'] else int(var['limit'])
+	dump = dump if not var['dump'] else var['dump']
 
 	print >> sys.stderr, color.render("target:",'lc'),target
 	print >> sys.stderr, color.render("rule:",'lc'),rule
 	print >> sys.stderr, color.render("limit:",'lc'),limit
+	print >> sys.stderr, color.render("dump:",'lc'),dump
 
-	print >> sys.stderr, 'press to begin ...',raw_input()
+	if halt:
+		print >> sys.stderr, 'press to begin ...',raw_input()
 	
 
 	## ------------------------------ main program ------------------------------
@@ -176,10 +180,11 @@ def main(argv):
 			print '(%s) %s' % (entry['sid'], words_str)
 		
 		## update mongo document
-		save_extracted_patterns(mco=coDeps, sid=entry['sid'], lemma=target, patterns=patterns)
+		if dump:
+			save_extracted_patterns(mco=coDeps, sid=entry['sid'], lemma=target, patterns=patterns)
 
 if __name__ == '__main__':
 	
-	main(sys.argv[1:])
+	main(sys.argv[1:], halt=True)
 
 

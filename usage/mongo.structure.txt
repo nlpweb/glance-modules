@@ -1,0 +1,51 @@
+## mongo > BNC > Deps
+
+{
+	"_id" : ObjectId("53038e52d4388c4b93415d53"),
+	"word" : "familiar",
+	"idx" : 7,
+	"pos" : "JJ",
+	"lemma" : "familiar",
+	"deps" : [
+		{
+			"ridx" : 5,
+			"rtoken" : "were",
+			"ltoken" : "familiar",
+			"rel" : "cop",
+			"lidx" : 7
+		},
+		{
+			"ridx" : 1,
+			"rtoken" : "Most",
+			"ltoken" : "familiar",
+			"rel" : "nsubj",
+			"lidx" : 7
+		},
+		{
+			"ridx" : 9,
+			"rtoken" : "LIBERTAS",
+			"ltoken" : "familiar",
+			"rel" : "prep_with",
+			"lidx" : 7
+		},
+		{
+			"ridx" : 13,
+			"rtoken" : "version",
+			"ltoken" : "familiar",
+			"rel" : "prep_with",
+			"lidx" : 7
+		}
+	],
+	"sid" : 537700,
+
+	"patterns" : [
+		{
+			"rule" :  [('prep', 1)] ,
+			"dep" : [(u'familiar', 7, u'JJ', True), (u'with', 8, u'IN', False), (u'LIBERTAS', 9, u'NNP', False)]
+		},
+		{
+			"rule" :  [('prep', 1)],
+			"dep" : [(u'familiar', 7, u'JJ', True), (u'with', 11, u'IN', False), (u'version', 13, u'NN', False)] 
+		}
+	]
+}

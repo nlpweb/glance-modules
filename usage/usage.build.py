@@ -95,22 +95,23 @@ def save_extracted_patterns(mco, sid, lemma, patterns):
 	mco.find_and_modify(query=query, update=update)
 
 def _extract_opt(argv):
-	target, rule, limit, dump = None, None, None, None
+	halt, target, rule, limit, dump = None, None, None, None, None
 	try:
-		opts, args = getopt.getopt(argv,"dht:r:l:",["dump","help", "target=", "rule=", "limit="])
+		opts, args = getopt.getopt(argv,"pdht:r:l:",["pause","dump","help", "target=", "rule=", "limit="])
 	except getopt.GetoptError:
-		print >> sys.stderr, 'python usage.build.py [-t <target>] [-r <rules>] [-l <limit>]'
+		print >> sys.stderr, 'python usage.build.py [-t <target>] [-r <rules>] [-l <limit>] [-p <pause>]'
 		sys.exit(2)
 	for opt, arg in opts:
 		if opt in ('-h', '--help'): 
 			print >> sys.stderr, '[usage]'
-			print >> sys.stderr, '\tpython usage.build.py [-t <target>] [-r <rules>] [-l <limit>]'
+			print >> sys.stderr, '\tpython usage.build.py [-t <target>] [-r <rules>] [-l <limit>] [-p <pause>]'
 			sys.exit(2)
 		elif opt in ('-t', '--target'): target = arg
 		elif opt in ('-r', '--rule'): rule = arg
 		elif opt in ('-l', '--limit'): limit = arg
 		elif opt in ('-d', '--dump'): dump = True
-	return {'target':target, 'rule':rule, 'limit':limit, 'dump':dump}
+		elif opt in ('-p', '--pause'): halt = True
+	return {'target':target, 'rule':rule, 'limit':limit, 'dump':dump, 'halt':halt}
 
 def main(argv, halt=False):
 
@@ -125,6 +126,7 @@ def main(argv, halt=False):
 	rule = rule if not var['rule'] else eval(var['rule'])
 	limit = limit if not var['limit'] else int(var['limit'])
 	dump = dump if not var['dump'] else var['dump']
+	halt = halt if not var['halt'] else var['halt']
 
 	print >> sys.stderr, color.render("target:",'lc'),target
 	print >> sys.stderr, color.render("rule:",'lc'),rule
@@ -186,6 +188,6 @@ def main(argv, halt=False):
 
 if __name__ == '__main__':
 	
-	main(sys.argv[1:], halt=True)
+	main(sys.argv[1:])
 
 

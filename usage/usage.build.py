@@ -171,6 +171,7 @@ def main(argv, halt=False):
 		for comb in combs:
 
 			words = form(comb, anchor, tree)
+			if not words: continue
 			pattern = {'rule': rule, 'words': words, 'weight': weight}
 
 			if pattern not in patterns:

@@ -1,12 +1,18 @@
 # -*- coding: utf-8 -*-
 
-import sqlitedb, dependency, color, sys # pymodules require
-# from nltk import Tree
-from collections import defaultdict
+## system 
+import getopt, sys, json
 from pprint import pprint
-import pymongo
-from ListCombination import ListCombination
+from collections import defaultdict
 
+## mongo
+import pymongo
+
+## pymodules
+from ListCombination import ListCombination
+import sqlitedb, dependency, color
+
+## nltk
 from nltk import Tree
 # from nltk.stem.wordnet import WordNetLemmatizer
 # from nltk.corpus import wordnet
@@ -19,7 +25,6 @@ mc = pymongo.Connection(doraemon)
 dbBNC = mc[db_info['name']]
 coDeps = dbBNC['Deps']
 coParsed = dbBNC['Parsed']
-# coUsage = dbBNC['Parsed']
 
 def apply_rule(deps, rule):
 	D = defaultdict(list)
@@ -85,57 +90,96 @@ def form(deps, anchor, tree=None):
 	return words
 
 def save_extracted_patterns(mco, sid, lemma, patterns):
-
 	query = {'sid':sid, 'lemma':lemma}
 	update = {'$set': {'patterns':patterns} }
-
 	mco.find_and_modify(query=query, update=update)
 
+def _extract_opt(argv):
+	target = None
+	rule = None
+	limit = None
+	try:
+		opts, args = getopt.getopt(argv,"ht:r:l:",["help", "target=", "rule=", "limit="])
+	except getopt.GetoptError:
+		print >> sys.stderr, 'python usage.build.py [-t <target>] [-r <rules>] [-l <limit>]'
+		sys.exit(2)
+	for opt, arg in opts:
+		if opt in ('-h', '--help'): 
+			print >> sys.stderr, '[usage]'
+			print >> sys.stderr, '\tpython usage.build.py [-t <target>] [-r <rules>] [-l <limit>]'
+			sys.exit(2)
+		elif opt in ('-t', '--target'): target = arg
+		elif opt in ('-r', '--rule'): rule = arg
+		elif opt in ('-l', '--limit'): limit = arg
+	return {'target':target, 'rule':rule, 'limit':limit}
 
-if __name__ == '__main__':
+def main(argv):
 
 	target = 'familiar'
-
-	R = list(coDeps.find({'lemma': target}))
-	# R = list(res)
-
 	rule = [('subj', 1), ('cop', 1), ('prep', 1)]
-	# rule = [('prep', 1)]
-	# rule = [('subj', 1), ('prep', 1), ('dobj', 1)]
-	# rule = [ ('obj', 1), ('prep_in', 1) ]
+	limit = -1
 
+	var = _extract_opt(argv)
+	target = target if not var['target'] else var['target'].strip()
+	rule = rule if not var['rule'] else eval(var['rule'])
+	limit = limit if not var['limit'] else int(var['limit'])
+
+	print >> sys.stderr, color.render("target:",'lc'),target
+	print >> sys.stderr, color.render("rule:",'lc'),rule
+	print >> sys.stderr, color.render("limit:",'lc'),limit
+
+	print >> sys.stderr, 'press to begin ...',raw_input()
+	
+
+	## ------------------------------ main program ------------------------------
+
+	R = coDeps.find({'lemma': target}) if limit < 0 else coDeps.find({'lemma': target}).limit(limit)
+	
 	for entry in R:
 
+		# get dependency relations 
 		deps = entry['deps']
 
+		# fetch original sentence info (including raw tree) to obtain pos tags
 		raw = list(coParsed.find( {'id':entry['sid']} ))[0]
 
 		tree = Tree(raw['tree'])
 
-		rels = apply_rule(deps, rule)  # < dict(<list>) >
+		# filter deps by pre-defined rule
+		# and yield a dictionary with rel<str> as key, deps<list> as value
+		rels = apply_rule(deps, rule)
 
 		if not rels: continue
 
 		combs = ListCombination(rels.values())
 		
-		# portion = '1/'+str(len(combs)) if len(combs) > 1 else '1'
+		# calculate weight of each combination
+		weight = 1/float(len(combs)) if len(combs) > 1 else 1.0
 
-		print 'sid >',entry['sid']
-
+		# form the anchor element using (word, index pair)
 		anchor = (entry['word'], entry['idx'])
 
-		# collect patterns object
+		# collect existing patterns object, ready to append new found patterns
 		patterns = [] if 'patterns' not in entry else entry['patterns'] 
 
+		# print 'sid >',
+
 		for comb in combs:
+
 			words = form(comb, anchor, tree)
-			patterns.append({'rule': rule, 'words': words})
+			pattern = {'rule': rule, 'words': words, 'weight': weight}
+
+			if pattern not in patterns:
+				patterns.append(pattern)
 
 			words_str = ' '.join([ color.render(x[0],'g') for x in words])
-			print words_str, '\t',words, rule
-		print 
-		# save_extracted_patterns(mco=coDeps, sid=entry['sid'], lemma=target, patterns=patterns)
+			print '(%s) %s' % (entry['sid'], words_str)
+		
+		## update mongo document
+		save_extracted_patterns(mco=coDeps, sid=entry['sid'], lemma=target, patterns=patterns)
 
-
+if __name__ == '__main__':
+	
+	main(sys.argv[1:])
 
 

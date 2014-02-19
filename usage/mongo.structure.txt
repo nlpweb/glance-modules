@@ -39,13 +39,16 @@
 	"sid" : 537700,
 
 	"patterns" : [
+
 		{
 			"rule" :  [('prep', 1)] ,
-			"dep" : [(u'familiar', 7, u'JJ', True), (u'with', 8, u'IN', False), (u'LIBERTAS', 9, u'NNP', False)]
+			"words" : [(u'familiar', 7, u'JJ', True), (u'with', 8, u'IN', False), (u'LIBERTAS', 9, u'NNP', False)],
+			"weight": 1.0
 		},
 		{
 			"rule" :  [('prep', 1)],
-			"dep" : [(u'familiar', 7, u'JJ', True), (u'with', 11, u'IN', False), (u'version', 13, u'NN', False)] 
+			"words" : [(u'familiar', 7, u'JJ', True), (u'with', 11, u'IN', False), (u'version', 13, u'NN', False)],
+			"weight": 1.0
 		}
 	]
 }

@@ -50,6 +50,8 @@ def form(deps, tree=None):
 		## current --> (v2.0) get precise prep idx, look into the origin sentence
 		if 'prep' in dep['rel']:
 			prep = '_'.join(dep['rel'].split('_')[1:])
+			if not prep:
+				continue
 
 			if not tree:
 				idx = max(dep['lidx'], dep['ridx']) - 1
@@ -57,16 +59,32 @@ def form(deps, tree=None):
 				_precise = False
 			else:
 				search = list(enumerate(tree_pos))[ min(dep['lidx'], dep['ridx']) : max(dep['lidx'], dep['ridx'])-1 ]
+
+				# print 'raw sent:',
+				# pprint(' '.join([x[0] for x in tree_pos]))
+				# print color.render('dep:','r'),dep
+				# print color.render('search:','lc'),
+				# pprint(search)
+				# print color.render('prep:'+prep, 'y')
+
 				## find precise position of prep, also considering multiple preps such as "out of"
 				positions = []
 				for p in prep.split('_'): ## deal with "out of" cases
-					maybe_idx = max([ i for (i,(word, pos)) in search if word == p]) + 1
+					maybe_idxs = [ i for (i,(word, pos)) in search if word == p]
+					if not maybe_idxs:  # prep is not like "A prep B". Might caused by parsing error
+						continue
+
+					maybe_idx = max(maybe_idxs) + 1
 					positions.append(maybe_idx)
+
+				if not positions: # cannot obtain correct position, skip this sentence
+					return []
+
 				idx = max(positions)
 				_precise = True
 
 			words.add((prep, idx, _precise))
-	
+
 	# if a tree is given, zip (word, idx, precise) pairs with pos tags
 	words = words if not tree else [(word, idx, tree_pos[idx-1][1], precise) for (word, idx, precise) in words]
 	words = sorted(list(words), key=lambda x:x[1])
@@ -104,13 +122,14 @@ if __name__ == '__main__':
 	# 	],
 	# 	"sid" : 1
 	# }
-	target = 'interest'
+	target = 'familiar'
 
 	R = list(coDeps.find({'lemma': target}).limit(100))
 	# R = list(res)
 
 	# rule = [('subj', 1), ('cop', 1), ('prep', 1)]
-	rule = [ ('obj', 1), ('prep_in', 1) ]
+	rule = [('subj', 0), ('cop', 1), ('prep', 1)]
+	# rule = [ ('obj', 1), ('prep_in', 1) ]
 
 	for entry in R:
 
@@ -118,7 +137,6 @@ if __name__ == '__main__':
 		raw = list(coParsed.find( {'id':entry['sid']} ))[0]
 
 		tree = Tree(raw['tree'])
-
 
 		rels = apply_rule(deps, rule)  # < dict(<list>) >
 
@@ -128,6 +146,8 @@ if __name__ == '__main__':
 		
 		# portion = '1/'+str(len(combs)) if len(combs) > 1 else '1'
 
+		
+		# if entry['sid'] != 591448: continue
 		print 'sid >',entry['sid']
 		for comb in combs:
 			words = form(comb, tree)

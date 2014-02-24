@@ -78,7 +78,7 @@ def super_sense(word, pos):
 		if not lemma_lst: continue
 		lemma_name, count =  lemma_lst[0][0], lemma_lst[0][1]
 		lexname = syn.lexname.split('.')[-1] if '.Tops' not in syn.lexname else lemma_name
-		candidates.append((lexname, count))
+		candidates.append((lexname.upper(), count))
 	if not candidates: return None
 	C = Counter()
 	S = float(sum([x[1] for x in candidates]))
@@ -130,7 +130,7 @@ def convert_to_wn(tb_tag):
 	else: return None
 
 def fetch(co, lemma):
-	return [r for r in coDeps.find( { 'lemma': lemma, 'patterns': { '$exists': True} } ) if len(r['patterns'])]
+	return [r for r in co.find( { 'lemma': lemma, 'patterns': { '$exists': True} } ) if len(r['patterns'])]
 
 def store(co, docs, verbose=True):
 	for doc in docs:
@@ -149,7 +149,7 @@ if __name__ == '__main__':
 
 	lemma = 'familiar'
 
-	res = fetch(co=db['Deps'], lemma)
+	res = fetch(db['Deps'], lemma)
 
 	for entry in res:
 		for pat in entry['patterns']:
@@ -158,7 +158,7 @@ if __name__ == '__main__':
 			pairs = construct(pat['words'])
 
 			## build mongo documents
-			documents = form_mongo_documents(pairs, raw_weight=pat['weight'], rule=pat['rule'], source=pat['_id'])
+			documents = form_mongo_documents(pairs, raw_weight=pat['weight'], rule=pat['rule'], source=entry['_id'])
 
 			## store back to mongo
 			store(co=db['usages'], docs=documents, verbose=True)

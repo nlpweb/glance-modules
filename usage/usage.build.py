@@ -92,7 +92,9 @@ def form(deps, anchor, tree=None):
 def save_extracted_patterns(mco, sid, lemma, patterns):
 	query = {'sid':sid, 'lemma':lemma}
 	update = {'$set': {'patterns':patterns} }
-	mco.find_and_modify(query=query, update=update)
+	pprint(patterns)
+
+	# mco.find_and_modify(query=query, update=update)
 
 def _extract_opt(argv):
 	halt, target, rule, limit, dump = None, None, None, None, None
@@ -185,6 +187,7 @@ def main(argv, halt=False):
 		## update mongo document
 		if dump:
 			save_extracted_patterns(mco=coDeps, sid=entry['sid'], lemma=target, patterns=patterns)
+			raw_input()
 
 if __name__ == '__main__':
 	

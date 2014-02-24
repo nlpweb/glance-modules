@@ -147,20 +147,24 @@ if __name__ == '__main__':
 
 	db = mc['BNC']
 
-	lemma = 'familiar'
+	# lemma = 'familiar'
+	anchors = set(['provide', 'yell', 'agree', 'hear', 'glance', 'separate', 'impress', 'consist', 'listen', 'apply', 'ask', 'aim', 'seek', 'look', 'account', 'launch', 'create', 'build', 'construct', 'contend', 'replace', 'substitute', 'count', 'deal', 'hide'])
+	for anchor in anchors:
 
-	res = fetch(db['Deps'], lemma)
+		print '='*25,'start processing',color.render(anchor,'r'),'='*25
+		
+		res = fetch(db['Deps'], anchor)
 
-	for entry in res:
-		for pat in entry['patterns']:
+		for entry in res:
+			for pat in entry['patterns']:
 
-			## construct usages
-			pairs = construct(pat['words'])
+				## construct usages
+				pairs = construct(pat['words'])
 
-			## build mongo documents
-			documents = form_mongo_documents(pairs, raw_weight=pat['weight'], rule=pat['rule'], source=entry['_id'])
+				## build mongo documents
+				documents = form_mongo_documents(pairs, raw_weight=pat['weight'], rule=pat['rule'], source=entry['_id'])
 
-			## store back to mongo
-			store(co=db['usages'], docs=documents, verbose=True)
+				## store back to mongo
+				store(co=db['usages'], docs=documents, verbose=True)
 
 	mc.close()

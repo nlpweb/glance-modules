@@ -1,37 +1,32 @@
 # -*- coding: utf-8 -*-
 
 ## system 
-# import getopt, sys, json
-# from pprint import pprint
-# from collections import defaultdict
-
-## mongo
-import pymongo, sys
-from nltk.stem.wordnet import WordNetLemmatizer
-from nltk.corpus import wordnet as wn
-
+import sys
 from collections import Counter
-from nltk.corpus import names
-from ListCombination import ListCombination
-
-lmtzr = WordNetLemmatizer()
-engnames = set(names.words('male.txt') + names.words('female.txt'))
-## pymodules
-# from ListCombination import ListCombination
-# import sqlitedb, dependency, color
 
 ## nltk
-# from nltk import Tree
-# from nltk.stem.wordnet import WordNetLemmatizer
-# from nltk.corpus import wordnet
+from nltk.stem.wordnet import WordNetLemmatizer
+from nltk.corpus import wordnet as wn
+from nltk.corpus import names
 
-######## connect to mongo server ########
+## pymodules
+from ListCombination import ListCombination
+import color
+
+## mongo
+import pymongo
+
+## available mongo servers
 doraemon = 'doraemon.iis.sinica.edu.tw'
 lost = 'lost.nlpweb.org'
 
-# def _wordnetpos(tbpos): return
+## init
+lmtzr = WordNetLemmatizer()
+engnames = set(names.words('male.txt') + names.words('female.txt'))
 
-
+BE = { 're':'are', 's':'is', 'm':'am'}
+PER = {'they', 'you', 'we', 'us', 'one', 'he', 'she', 'her', 'him', 'them', 'me'}
+PERS = {'their', 'theirs', 'your', 'yours', 'our', 'ours', 'her', 'his', 'my'}
 
 def connect(servers):
 	for server in servers:
@@ -43,12 +38,6 @@ def connect(servers):
 			mc = None
 			print >> sys.stderr, '# failed to connect',server
 	return mc
-
-BE = { 're':'are', 's':'is', 'm':'am'}
-
-PER = set(['they', 'you', 'we', 'us', 'one', 'he', 'she', 'her', 'him', 'them', 'me'])
-PERS = set(['their', 'theirs', 'your', 'yours', 'our', 'ours', 'her', 'his', 'my'])
-# PEROWN = {'her', 'his', 'mine' my our ours their thy your}
 
 def construct(words):
 	unexpand_pairs = []
@@ -132,8 +121,6 @@ def categorize(word, pos):
 	# default
 	return [(_word, 1.0)]
 
-# coParsed = dbBNC['Parsed']
-
 def convert_to_wn(tb_tag):
 	tb_tag = tb_tag.upper()
 	if tb_tag.startswith('J'): return wn.ADJ
@@ -145,18 +132,21 @@ def convert_to_wn(tb_tag):
 def fetch(co, lemma):
 	return [r for r in coDeps.find( { 'lemma': lemma, 'patterns': { '$exists': True} } ) if len(r['patterns'])]
 
-def store(co, docs): for doc in docs: co.insert(doc)
+def store(co, docs, verbose=True):
+	for doc in docs:
+		if verbose:
+			print '#',color.render('save','g'),'usage >', color.render(doc['usage'], 'lc')
+		co.insert(doc)
 	
-
 if __name__ == '__main__':
 
 	mc = connect(servers=[doraemon, lost])
 	if not mc:
 		print 'cannot reach db'
 		exit(-1)
-	
+
 	db = mc['BNC']
-	
+
 	lemma = 'familiar'
 
 	res = fetch(co=db['Deps'], lemma)
@@ -171,6 +161,6 @@ if __name__ == '__main__':
 			documents = form_mongo_documents(pairs, raw_weight=pat['weight'], rule=pat['rule'], source=pat['_id'])
 
 			## store back to mongo
-			store(co=db['usages'], docs=documents)
+			store(co=db['usages'], docs=documents, verbose=True)
 
 	mc.close()

@@ -140,7 +140,7 @@ def store(co, docs, verbose=True):
 	
 if __name__ == '__main__':
 
-
+	argv = sys.argv[1:]
 	opts, args = getopt.getopt(argv,"va:s:",["verbose","anchor",'server'])
 
 	servers = [lost, doraemon]

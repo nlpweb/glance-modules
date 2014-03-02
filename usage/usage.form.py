@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ## system 
-import sys
+import sys, getopt
 from collections import Counter
 
 ## nltk
@@ -140,7 +140,23 @@ def store(co, docs, verbose=True):
 	
 if __name__ == '__main__':
 
-	mc = connect(servers=[lost,doraemon])
+
+	opts, args = getopt.getopt(argv,"va:s:",["verbose","anchor",'server'])
+
+	servers = [lost, doraemon]
+	verbose = False
+	anchors = set(['provide', 'yell', 'agree', 'hear', 'glance', 'separate', 'impress', 'consist', 'listen', 'apply', 'ask', 'aim', 'seek', 'look', 'account', 'launch', 'create', 'build', 'construct', 'contend', 'replace', 'substitute', 'count', 'deal', 'hide'])
+
+	for opt, arg in opts:
+		if opt in ('-v','--verbose'): verbose = True
+		elif opt in ("-a", "--anchor"): anchors = [anchor]
+		elif opt in ('-s', '--server'): 
+			if arg.strip() == 'lost': s = lost
+			elif arg.strip() == 'doraemon': s = doraemon
+			servers.insert(0, s)
+	
+
+	mc = connect(servers=servers)
 	if not mc:
 		print 'cannot reach db'
 		exit(-1)
@@ -148,7 +164,7 @@ if __name__ == '__main__':
 	db = mc['BNC']
 
 	# lemma = 'familiar'
-	anchors = set(['provide', 'yell', 'agree', 'hear', 'glance', 'separate', 'impress', 'consist', 'listen', 'apply', 'ask', 'aim', 'seek', 'look', 'account', 'launch', 'create', 'build', 'construct', 'contend', 'replace', 'substitute', 'count', 'deal', 'hide'])
+	
 	for anchor in anchors:
 
 		print '='*25,'start processing',color.render(anchor,'r'),'='*25
@@ -159,15 +175,18 @@ if __name__ == '__main__':
 			for pat in entry['patterns']:
 
 				## construct usages
-				print 'construct'
+				if verbose:
+					print 'construct'
 				pairs = construct(pat['words'])
 
 				## build mongo documents
-				print 'form mongo document'
+				if verbose:
+					print 'form mongo document'
 				documents = form_mongo_documents(pairs, raw_weight=pat['weight'], rule=pat['rule'], source=entry['_id'])
 
 				## store back to mongo
-				print 'store'
-				store(co=db['usages'], docs=documents, verbose=True)
+				if verbose:
+					print 'store'
+				store(co=db['usages'], docs=documents, verbose=verbose)
 
 	mc.close()

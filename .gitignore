@@ -1,4 +1,5 @@
 venv
+usage/pickle/
 *.pyc
 *.png
 *.jpg

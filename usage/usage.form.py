@@ -159,12 +159,15 @@ if __name__ == '__main__':
 			for pat in entry['patterns']:
 
 				## construct usages
+				print 'construct'
 				pairs = construct(pat['words'])
 
 				## build mongo documents
+				print 'form mongo document'
 				documents = form_mongo_documents(pairs, raw_weight=pat['weight'], rule=pat['rule'], source=entry['_id'])
 
 				## store back to mongo
+				print 'store'
 				store(co=db['usages'], docs=documents, verbose=True)
 
 	mc.close()

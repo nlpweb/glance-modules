@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
 ## system 
-import sys, getopt
+import sys, getopt, os
 from collections import Counter
 
 ## nltk
+import nltk
+nltk.data.path.append(os.environ['PROJECT_HOME']+'/nltk_data')
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.corpus import wordnet as wn
 from nltk.corpus import names

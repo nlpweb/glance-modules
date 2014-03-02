@@ -151,7 +151,7 @@ if __name__ == '__main__':
 
 	for opt, arg in opts:
 		if opt in ('-v','--verbose'): verbose = True
-		elif opt in ("-a", "--anchor"): anchors = [anchor]
+		elif opt in ("-a", "--anchor"): anchors = arg.split(',')
 		elif opt in ('-s', '--server'): 
 			if arg.strip() == 'lost': s = lost
 			elif arg.strip() == 'doraemon': s = doraemon

@@ -140,7 +140,7 @@ def store(co, docs, verbose=True):
 	
 if __name__ == '__main__':
 
-	mc = connect(servers=[doraemon, lost])
+	mc = connect(servers=[lost,doraemon])
 	if not mc:
 		print 'cannot reach db'
 		exit(-1)

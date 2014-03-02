@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
 ## system 
-import sys, getopt
+import sys, getopt, os
 from collections import Counter
 
 ## nltk
+import nltk
+nltk.data.path.append(os.environ['PROJECT_HOME']+'/nltk_data')
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.corpus import wordnet as wn
 from nltk.corpus import names
@@ -149,7 +151,7 @@ if __name__ == '__main__':
 
 	for opt, arg in opts:
 		if opt in ('-v','--verbose'): verbose = True
-		elif opt in ("-a", "--anchor"): anchors = [anchor]
+		elif opt in ("-a", "--anchor"): anchors = arg.split(',')
 		elif opt in ('-s', '--server'): 
 			if arg.strip() == 'lost': s = lost
 			elif arg.strip() == 'doraemon': s = doraemon

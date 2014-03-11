@@ -28,3 +28,5 @@
 5.  建商因為現金流的問題無法支付
 
 	The builder is unable to pay due to cash `____________` problems.
+
+6. `new`
